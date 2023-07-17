@@ -1,0 +1,98 @@
+program examenArchivos;
+
+const
+     valoralto = 9999;
+type
+    articulo = record
+             cod_articulo:integer;
+             nombre:string[30];
+             descripcion:string[100];
+             talle:integer;
+             color:string[50];
+             stock_min:integer;
+             stock_disponible:integer;
+             precio:real;
+    end;
+
+    articulo_vendido = record
+             cod_articulo:integer;
+             cantVendida:integer;
+    end;
+
+    articulos = file of articulo;
+    articulosSucursal = file of articulo_vendido;
+    detalles = array [1..50] of articulosSucursal;
+    regdetalles = array [1..50] of articulo_vendido;
+
+var
+   i:integer;
+   mae:articulos;
+   dets:detalles;
+   noStock:Text;
+
+
+   procedure leer(var det:articulosSucursal; var regd:articulo_vendido);
+   begin
+        if not eof(det) then
+           read(det,regd)
+        else
+           regd.cod_articulo := valoralto;
+   end;
+
+   procedure minimo (var dets:detalles; var regds:regdetalles; var min:articulo_vendido);
+   var
+      i,aux:integer;
+   begin
+        for i:=1 to 50 do begin
+            if (regds[i].cod_articulo < min.cod_articulo) then begin
+               min:= regds[i];
+               aux:= i;
+            end;
+        end;
+        leer(dets[aux],regds[aux]);
+   end;
+
+   procedure actualizarMae(var mae:articulos; var dets:detalles; var noStock:Text);
+   var
+      regm:articulo;
+      regdets: array [1..50] of articulo_vendido;
+      min:articulo_vendido;
+      i,totalStockVendido:integer;
+   begin
+      rewrite(noStock);
+      reset(mae);
+      min.cod_articulo:= 9999;
+      for i:=1 to 50 do begin
+          reset(dets[i]);
+          leer(dets[i],regdets[i]);
+      end;
+      minimo(dets,regdets,min);
+      while (min.cod_articulo <> valoralto) do begin
+            read(mae,regm);
+            while (regm.cod_articulo <> min.cod_articulo) do
+                  read(mae,regm);
+            totalStockVendido := 0;
+            while (regm.cod_articulo = min.cod_articulo) do begin
+                  totalStockVendido := totalStockVendido + min.cantVendida;
+                  minimo(dets,regdets,min);
+            end;
+            regm.stock_disponible := regm.stock_disponible - totalStockVendido;
+            if (regm.stock_disponible < regm.stock_min) then
+               with regm do writeln('Nombre artículo: ',nombre,' descripción: ',descripcion,' stock disponible: ',stock_disponible,' precio: ',precio);
+            seek(mae,filepos(mae)-1);
+            write(mae,regm);
+      end;
+      close(mae);
+      for i:=1 to 50 do
+          close(dets[i]);
+      close(noStock);
+   end;
+
+begin
+     assign(mae,'archivoMae');
+     assign(noStock,'noStock.txt');
+     for i:=1 to 50 do
+         assign(dets[i],'det'+i); //Suponiendo que sea valido
+     actualizarMae(mae,dets,noStock);
+
+end.
